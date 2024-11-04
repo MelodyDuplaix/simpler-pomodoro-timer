@@ -65,14 +65,6 @@ const updateBreakLen = (e: Event) => {
                 />
             </div>
         </div>
-        <div class="pomodoro-settings-item">
-            <div class="pomodoro-settings-label">
-                Prefer Saving to Task File
-            </div>
-            <div class="pomodoro-settings-control">
-                <input type="checkbox" bind:checked={$settings.logFocused} />
-            </div>
-        </div>
     </div>
 </div>
 

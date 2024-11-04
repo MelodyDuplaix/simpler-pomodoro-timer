@@ -4,10 +4,8 @@ import Worker from 'clock.worker'
 import { writable, derived } from 'svelte/store'
 import type { Readable } from 'svelte/store'
 import { Notice, TFile } from 'obsidian'
-import Logger, { type LogContext } from 'Logger'
 import DEFAULT_NOTIFICATION from 'Notification'
 import type { Unsubscriber } from 'svelte/motion'
-import type { TaskItem } from 'Tasks'
 
 export type Mode = 'WORK' | 'BREAK'
 
@@ -16,28 +14,7 @@ export type TimerRemained = {
     human: string
 }
 
-const DEFAULT_TASK: TaskItem = {
-    actual: 0,
-    expected: 0,
-    path: '',
-    fileName: '',
-    text: '',
-    name: '',
-    status: '',
-    blockLink: '',
-    checked: false,
-    done: '',
-    due: '',
-    created: '',
-    cancelled: '',
-    scheduled: '',
-    start: '',
-    description: '',
-    priority: '',
-    recurrence: '',
-    tags: [],
-    line: -1,
-}
+export type LogContext = TimerState
 
 export type TimerState = {
     autostart: boolean
@@ -63,8 +40,6 @@ export default class Timer implements Readable<TimerStore> {
 
     private plugin: PomodoroTimerPlugin
 
-    private logger: Logger
-
     private state: TimerState
 
     private store: Readable<TimerStore>
@@ -79,7 +54,6 @@ export default class Timer implements Readable<TimerStore> {
 
     constructor(plugin: PomodoroTimerPlugin) {
         this.plugin = plugin
-        this.logger = new Logger(plugin)
         let count = this.toMillis(plugin.getSettings().workLen)
         this.state = {
             autostart: plugin.getSettings().autostart,
@@ -153,6 +127,11 @@ export default class Timer implements Readable<TimerStore> {
         }
     }
 
+    private createLogContext(s: TimerState): LogContext {
+        let state = { ...s }
+        return { ...state}
+    }
+
     private timeup() {
         let autostart = false
         this.update((state) => {
@@ -166,27 +145,10 @@ export default class Timer implements Readable<TimerStore> {
         }
     }
 
-    private createLogContext(s: TimerState): LogContext {
-        let state = { ...s }
-        let task = this.plugin.tracker?.task
-            ? { ...this.plugin.tracker.task }
-            : { ...DEFAULT_TASK }
-
-        if (!task.path) {
-            task.path = this.plugin.tracker?.file?.path ?? ''
-            task.fileName = this.plugin.tracker?.file?.name ?? ''
-        }
-
-        return { ...state, task }
-    }
-
     private async processLog(ctx: LogContext) {
-        if (ctx.mode == 'WORK') {
-            await this.plugin.tracker?.updateActual()
-        }
-        const logFile = await this.logger.log(ctx)
-        this.notify(ctx, logFile)
+        this.notify(ctx)
     }
+
 
     public start() {
         this.update((s) => {
@@ -228,7 +190,7 @@ export default class Timer implements Readable<TimerStore> {
         return state
     }
 
-    private notify(state: TimerState, logFile: TFile | void) {
+    private notify(state: TimerState) {
         const emoji = state.mode == 'WORK' ? '🍅' : '🥤'
         const text = `${emoji} You have been ${
             state.mode === 'WORK' ? 'working' : 'breaking'
@@ -243,9 +205,6 @@ export default class Timer implements Readable<TimerStore> {
                 silent: true,
             })
             sysNotification.on('click', () => {
-                if (logFile) {
-                    this.plugin.app.workspace.getLeaf('split').openFile(logFile)
-                }
                 sysNotification.close()
             })
             sysNotification.show()
@@ -254,9 +213,6 @@ export default class Timer implements Readable<TimerStore> {
             let span = fragment.createEl('span')
             span.setText(`${text}`)
             fragment.addEventListener('click', () => {
-                if (logFile) {
-                    this.plugin.app.workspace.getLeaf('split').openFile(logFile)
-                }
             })
             new Notice(fragment)
         }
@@ -279,19 +235,12 @@ export default class Timer implements Readable<TimerStore> {
 
     public reset() {
         this.update((state) => {
-            if (state.elapsed > 0) {
-                this.logger.log(this.createLogContext(state))
-            }
 
             state.duration =
                 state.mode == 'WORK' ? state.workLen : state.breakLen
             state.count = state.duration * 60 * 1000
             state.inSession = false
             state.running = false
-
-            if (!this.plugin.tracker!.pinned) {
-                this.plugin.tracker!.clear()
-            }
             this.clock.postMessage({
                 start: false,
                 lowFps: this.plugin.getSettings().lowFps,

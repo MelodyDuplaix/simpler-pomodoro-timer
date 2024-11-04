@@ -1,0 +1,28 @@
+{
+  "workLen": 15,
+  "breakLen": 0,
+  "autostart": true,
+  "useStatusBarTimer": true,
+  "notificationSound": true,
+  "customSound": "",
+  "useSystemNotification": true,
+  "lowFps": false,
+  "presetDurations": [
+    {
+      "work": 10,
+      "break": 2
+    },
+    {
+      "work": 25,
+      "break": 5
+    },
+    {
+      "work": 60,
+      "break": 5
+    },
+    {
+      "work": 15,
+      "break": 0
+    }
+  ]
+}
